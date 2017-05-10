@@ -22,8 +22,8 @@ catkin_package(
  DEPENDS gtsam
 )
 
-# add_library (localization src/localization.cpp)
-# add_dependencies(localization
-#   ${catkin_EXPORTED_TARGETS}
-# )
-# target_link_libraries (localization gtsam ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+add_library (localization src/localization.cpp)
+add_dependencies(localization
+  ${catkin_EXPORTED_TARGETS}
+)
+target_link_libraries (localization gtsam ${catkin_LIBRARIES} ${Boost_LIBRARIES})

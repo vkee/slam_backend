@@ -1,0 +1,128 @@
+#ifndef LOCALIZATION_H
+#define LOCALIZATION_H
+
+#include <iostream>
+#include <sstream>
+#include <vector>
+// GTSAM Stuff
+#include <gtsam/geometry/Pose2.h>
+
+// Each variable in the system (poses and landmarks) must be identified with a unique key.
+// We can either use simple integer keys (1, 2, 3, ...) or symbols (X1, X2, L1).
+// Here we will use Symbols
+#include <gtsam/inference/Symbol.h>
+
+// We want to use iSAM2 to solve the structure-from-motion problem incrementally, so
+// include iSAM2 here
+#include <gtsam/nonlinear/ISAM2.h>
+
+// iSAM2 requires as input a set set of new factors to be added stored in a factor graph,
+// and initial guesses for any new variables used in the added factors
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/nonlinear/Values.h>
+
+// Once the optimized values have been calculated, we can also calculate the marginal covariance
+// of desired variables
+#include <gtsam/nonlinear/Marginals.h>
+
+// In GTSAM, measurement functions are represented as 'factors'. Several common factors
+// have been provided with the library for solving robotics/SLAM/Bundle Adjustment problems.
+// Also, we will initialize the robot at some location using a Prior factor.
+#include <gtsam/slam/PriorFactor.h>
+#include <gtsam/slam/BetweenFactor.h>
+
+namespace slam {
+
+class Localization
+{
+	public:
+    // Constructors
+    Localization();
+    Localization(double isam2_relinearize_thresh, double isam2_relinearize_skip, double prior_trans_stddev, 
+      double prior_rot_stddev, double odom_trans_stddev, double odom_rot_stddev, double land_obs_trans_stddev, 
+      double land_obs_rot_stddev);
+    // Destructor
+    ~Localization();
+
+    // Initializes localization
+    void init_localization(double isam2_relinearize_thresh, double isam2_relinearize_skip, 
+      double prior_trans_stddev, double prior_rot_stddev, double odom_trans_stddev, double odom_rot_stddev,
+      double land_obs_trans_stddev, double land_obs_rot_stddev);
+
+    // Adds an odometry measurement to iSAM2 and returns the current estimated state
+    Eigen::Matrix3f add_odom_measurement(Eigen::Matrix3f odom_measurement);
+
+    // Adds a landmark measurement to iSAM2 and returns the current estimated state of the landmark
+    Eigen::Matrix3f add_landmark_measurement(Eigen::Matrix3f landmark_measurement);
+
+    // Returns the estimated robot pose
+    Eigen::Matrix3f get_est_robot_pose();
+
+    // Returns the estimated landmark pose
+    Eigen::Matrix3f get_est_landmark_pose();
+
+	private:
+    // Initialize iSAM2 with parameters
+    void initialize_isam2();
+
+    // Initialize the factor graph
+    void initialize_factor_graph();
+
+    // Initialize the noise models
+    void initialize_noise_models();
+
+    // Optimizes the factor graph
+    void optimize_factor_graph();
+
+    std::string landmark_name_;
+    std::string robot_name_;
+    std::string est_robot_name_;
+    std::string est_landmark_name_;
+
+    gtsam::Symbol current_robot_sym_;
+    gtsam::Symbol landmark_sym_;
+
+    // Counters for the robot pose and landmarks
+    int robot_pose_counter_;
+    int landmark_obs_counter_;
+
+    // Only relinearize variables whose linear delta magnitude is greater than this threshold (default: 0.1). 
+    double isam2_relinearize_thresh_;
+    // Only relinearize any variables every relinearizeSkip calls to ISAM2::update (default: 10) 
+    int isam2_relinearize_skip_;
+
+    // Standard deviation of the translation and rotation components of the robot pose prior
+    double prior_trans_stddev_;
+    double prior_rot_stddev_;
+    // Standard deviation of the translation and rotation components of the odometry measurements
+    double odom_trans_stddev_;
+    double odom_rot_stddev_;
+    // Standard deviation of the translation and rotation components of the landmark observations
+    double land_obs_trans_stddev_;
+    double land_obs_rot_stddev_;
+
+    // isam2 solver
+    gtsam::ISAM2 isam2_;
+
+    // The iSAM2 estimated state
+    gtsam::Values est_state_;
+    // The estimated pose of the robot
+    gtsam::Pose2 est_robot_pose_;
+    // The estimated pose of the landmark
+    gtsam::Pose2 est_landmark_pose_;
+
+    // Create a Factor Graph and Values to hold the new data
+    gtsam::NonlinearFactorGraph factor_graph_;
+    gtsam::Values init_est_;
+
+    // Noise model of the prior pose noise
+    gtsam::noiseModel::Diagonal::shared_ptr prior_pose_noise_;
+    // Noise model of the robot odometry
+    gtsam::noiseModel::Diagonal::shared_ptr odom_noise_;
+    // Noise model of the landmark observations
+    gtsam::noiseModel::Diagonal::shared_ptr land_obs_noise_;
+};
+
+}  // namespace slam
+
+#endif // LOCALIZATION_H
