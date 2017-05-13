@@ -46,6 +46,7 @@ class Localization
     // Destructor
     ~Localization();
 
+    // 2D Pose Struct
     struct Pose2D {
       double x;
       double y;
