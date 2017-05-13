@@ -4,6 +4,8 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <unordered_map>
+
 // GTSAM Stuff
 #include <gtsam/geometry/Pose2.h>
 
@@ -44,22 +46,28 @@ class Localization
     // Destructor
     ~Localization();
 
+    struct Pose2D {
+      double x;
+      double y;
+      double theta;
+    };
+
     // Initializes localization
     void init_localization(double isam2_relinearize_thresh, double isam2_relinearize_skip, 
       double prior_trans_stddev, double prior_rot_stddev, double odom_trans_stddev, double odom_rot_stddev,
       double land_obs_trans_stddev, double land_obs_rot_stddev);
 
     // Adds an odometry measurement to iSAM2 and returns the current estimated state
-    Eigen::Matrix3f add_odom_measurement(Eigen::Matrix3f odom_measurement);
+    Localization::Pose2D add_odom_measurement(double x, double y, double theta);
 
-    // Adds a landmark measurement to iSAM2 and returns the current estimated state of the landmark
-    Eigen::Matrix3f add_landmark_measurement(Eigen::Matrix3f landmark_measurement);
+    // Adds a landmark measurement to iSAM2
+    void add_landmark_measurement(int landmark_id, double x, double y, double theta);
+
+    // Optimizes the factor graph
+    void optimize_factor_graph();
 
     // Returns the estimated robot pose
-    Eigen::Matrix3f get_est_robot_pose();
-
-    // Returns the estimated landmark pose
-    Eigen::Matrix3f get_est_landmark_pose();
+    Localization::Pose2D get_est_robot_pose();
 
 	private:
     // Initialize iSAM2 with parameters
@@ -71,8 +79,8 @@ class Localization
     // Initialize the noise models
     void initialize_noise_models();
 
-    // Optimizes the factor graph
-    void optimize_factor_graph();
+    // Map of the landmark ids to the gtsam landmark symbol
+    std::unordered_map<int, gtsam::Symbol> landmark_id_map_;
 
     std::string landmark_name_;
     std::string robot_name_;
@@ -80,7 +88,6 @@ class Localization
     std::string est_landmark_name_;
 
     gtsam::Symbol current_robot_sym_;
-    gtsam::Symbol landmark_sym_;
 
     // Counters for the robot pose and landmarks
     int robot_pose_counter_;
