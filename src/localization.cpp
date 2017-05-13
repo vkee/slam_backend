@@ -186,6 +186,8 @@ void Localization::optimize_factor_graph()
 
   // Get the current iSAM2 estimate
   est_state_ = isam2_.calculateEstimate();
+  // Update the current estimated robot pose
+  est_robot_pose_ = est_state_.at<gtsam::Pose2>(current_robot_sym_);
 
   // Clear the factor graph and values for the next iteration
   factor_graph_.resize(0);
