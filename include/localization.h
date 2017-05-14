@@ -119,6 +119,12 @@ class Localization
     // The estimated pose of the landmark
     gtsam::Pose2 est_landmark_pose_;
 
+    // The pose of the robot at the last time an optimization was done
+    gtsam::Pose2 opt_robot_pose_;
+
+    // Transformation from the last optimized pose to the current optimized pose
+    gtsam::Pose2 last_opt_robot_T_robot_now_;
+
     // Create a Factor Graph and Values to hold the new data
     gtsam::NonlinearFactorGraph factor_graph_;
     gtsam::Values init_est_;

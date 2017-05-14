@@ -66,7 +66,7 @@ void Localization::initialize_isam2()
 void Localization::initialize_factor_graph()
 {
   // Add a prior on pose x1 at the origin. A prior factor consists of a mean and a noise model (covariance matrix)
-  gtsam::Pose2 prior_pose(); // prior mean is at origin
+  gtsam::Pose2 prior_pose; // prior mean is at origin
 
   current_robot_sym_ = gtsam::Symbol('x', robot_pose_counter_);
 
@@ -77,16 +77,16 @@ void Localization::initialize_factor_graph()
 // Initialize the noise models
 void Localization::initialize_noise_models()
 {
-  gtsam::Vector prior_sigmas(6);
-  prior_sigmas << prior_trans_stddev_, prior_trans_stddev_, prior_trans_stddev_, prior_rot_stddev_, prior_rot_stddev_, prior_rot_stddev_;
+  gtsam::Vector prior_sigmas(3);
+  prior_sigmas << prior_trans_stddev_, prior_trans_stddev_, prior_rot_stddev_;
   prior_pose_noise_ = gtsam::noiseModel::Diagonal::Sigmas(prior_sigmas);
 
-  gtsam::Vector odom_sigmas(6);
-  odom_sigmas << odom_trans_stddev_, odom_trans_stddev_, odom_trans_stddev_, odom_rot_stddev_, odom_rot_stddev_, odom_rot_stddev_;
+  gtsam::Vector odom_sigmas(3);
+  odom_sigmas << odom_trans_stddev_, odom_trans_stddev_, odom_rot_stddev_;
   odom_noise_ = gtsam::noiseModel::Diagonal::Sigmas(odom_sigmas);
 
-  gtsam::Vector obs_sigmas(6);
-  obs_sigmas << land_obs_trans_stddev_, land_obs_trans_stddev_, land_obs_trans_stddev_, land_obs_rot_stddev_, land_obs_rot_stddev_, land_obs_rot_stddev_;
+  gtsam::Vector obs_sigmas(3);
+  obs_sigmas << land_obs_trans_stddev_, land_obs_trans_stddev_, land_obs_rot_stddev_;
   land_obs_noise_ = gtsam::noiseModel::Diagonal::Sigmas(obs_sigmas);
 }
 
@@ -95,6 +95,9 @@ Localization::Pose2D Localization::add_odom_measurement(double x, double y, doub
 {
   robot_pose_counter_ += 1;
   gtsam::Symbol next_robot_sym = gtsam::Symbol('x', robot_pose_counter_);
+
+  std::cout << "current_robot_sym_: " << current_robot_sym_ << std::endl;
+  std::cout << "next_robot_sym: " << next_robot_sym << std::endl;
 
   // Update the factor graph with the transformation (need to increment the counter too)
   gtsam::Pose2 robot_odometry(x, y, theta);
@@ -119,11 +122,11 @@ Localization::Pose2D Localization::add_odom_measurement(double x, double y, doub
     init_est_.insert(current_robot_sym_, est);
   }
 
-  // Optimize the factor graph
-  optimize_factor_graph();
+  // Update the robot pose wrt to the last optimized robot pose
+  last_opt_robot_T_robot_now_ = last_opt_robot_T_robot_now_ * robot_odometry;
 
-  // Update the current estimated robot pose
-  est_robot_pose_ = est_state_.at<gtsam::Pose2>(current_robot_sym_);
+  // Update the current estimated robot pose (last optimized pose * last_opt_pose_T_curr_robot_pose
+  est_robot_pose_ = opt_robot_pose_ * last_opt_robot_T_robot_now_;
 
   Localization::Pose2D pose2D;
   pose2D.x = est_robot_pose_.x();
@@ -188,6 +191,9 @@ void Localization::optimize_factor_graph()
   est_state_ = isam2_.calculateEstimate();
   // Update the current estimated robot pose
   est_robot_pose_ = est_state_.at<gtsam::Pose2>(current_robot_sym_);
+  opt_robot_pose_ = est_robot_pose_;
+  // Identity since the optimized pose is the current robot pose
+  last_opt_robot_T_robot_now_ = gtsam::Pose2();
 
   // Clear the factor graph and values for the next iteration
   factor_graph_.resize(0);
