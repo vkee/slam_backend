@@ -53,6 +53,20 @@ class Localization
       double theta;
     };
 
+    // Landmark Info for HashMap
+    struct LandmarkInfo {
+      // Symbol of the landmark
+      gtsam::Symbol land_sym;
+      // Number of times the landmark is observed
+      int num_obs;
+      // Symbol of the robot pose at obs time
+      gtsam::Symbol robot_pose_sym;
+      // Measured transform from the robot (at obs time) to landmark
+      gtsam::Pose2 robot_T_land;
+      // Estimated pose of landmark in world
+      gtsam::Pose2 world_T_land;
+    };
+
     // Initializes localization
     void init_localization(double isam2_relinearize_thresh, double isam2_relinearize_skip, 
       double prior_trans_stddev, double prior_rot_stddev, double odom_trans_stddev, double odom_rot_stddev,
@@ -65,9 +79,9 @@ class Localization
     Localization::Pose2D add_odom_measurement(double odom_x, double odom_y, double odom_theta, 
         double global_x, double global_y, double global_theta);
 
-
-    // Adds a landmark measurement to iSAM2
-    void add_landmark_measurement(int landmark_id, double x, double y, double theta);
+    // Adds/stores a landmark measurement to iSAM2 and returns whether the factor graph can be optimized
+    bool add_landmark_measurement(int landmark_id, double land_rel_x, double land_rel_y, double land_rel_theta, 
+      double land_glob_x, double land_glob_y, double land_glob_theta);
 
     // Optimizes the factor graph
     void optimize_factor_graph();
@@ -85,8 +99,8 @@ class Localization
     // Initialize the noise models
     void initialize_noise_models();
 
-    // Map of the landmark ids to the gtsam landmark symbol
-    std::unordered_map<int, gtsam::Symbol> landmark_id_map_;
+    // Map of the landmark ids to LandmarkInfo
+    std::unordered_map<int, Localization::LandmarkInfo> landmark_id_map_;
 
     std::string landmark_name_;
     std::string robot_name_;

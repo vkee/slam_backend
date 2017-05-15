@@ -108,6 +108,7 @@ Localization::Pose2D Localization::add_odom_measurement(double odom_x, double od
   {
     // Estimate is just odom b/c prior is origin
     init_est_.insert(current_robot_sym_, robot_odometry);
+    est_robot_pose_ = robot_odometry;
   }
 
   else 
@@ -116,6 +117,7 @@ Localization::Pose2D Localization::add_odom_measurement(double odom_x, double od
 
     gtsam::Pose2 est(global_x, global_y, global_theta);
     init_est_.insert(current_robot_sym_, est);
+    est_robot_pose_ = est;
   }
 }
 
@@ -184,20 +186,43 @@ Localization::Pose2D Localization::add_odom_measurement(double odom_x, double od
 //   return pose2D;
 // }
 
-// Adds a landmark measurement to iSAM2
-void Localization::add_landmark_measurement(int landmark_id, double x, double y, double theta)
+// Adds/stores a landmark measurement to iSAM2 and returns whether the factor graph can be optimized
+bool Localization::add_landmark_measurement(int landmark_id, double land_rel_x, double land_rel_y, double land_rel_theta, 
+  double land_glob_x, double land_glob_y, double land_glob_theta)
 {
-  gtsam::Symbol landmark_sym;
-  bool new_landmark;
-
-  std::cout << "in add_landmark_measurement" << std::endl;
-
   // Check if the landmark has been observed before
   if (landmark_id_map_.count(landmark_id) == 1)
   {
-    // Get the landmark symbol
-    landmark_sym = landmark_id_map_.at(landmark_id);
-    new_landmark = false;
+    // Get the landmark info
+    Localization::LandmarkInfo landmark_info = landmark_id_map_.at(landmark_id);
+
+    int num_obs = landmark_info.num_obs;
+    gtsam::Symbol land_sym = landmark_info.land_sym;
+
+    // If the landmark was observed only once, put the previous landmark measurement into the factor graph and add the initial estimate of the landmark
+    if (num_obs == 1)
+    {
+      // Add the previous landmark measurement to the factor graph from the robot pose symbol
+      factor_graph_.add(gtsam::BetweenFactor<gtsam::Pose2> (landmark_info.robot_pose_sym, land_sym, landmark_info.robot_T_land, land_obs_noise_));
+
+      // Add the initial estimate
+      init_est_.insert(land_sym, landmark_info.world_T_land);
+    }
+
+    // Construct the current landmark measurement
+    gtsam::Pose2 curr_land_meas(land_rel_x, land_rel_y, land_rel_theta);
+    // Add the current measurement
+    factor_graph_.add(gtsam::BetweenFactor<gtsam::Pose2> (current_robot_sym_, land_sym, curr_land_meas, land_obs_noise_));
+
+    // Update the dictionary (only the num_obs needs to be updated)
+    // Increase the number of times the landmark was observed
+    landmark_info.num_obs = landmark_info.num_obs + 1;
+
+    // Update the dictionary entry
+    landmark_id_map_[landmark_id] = landmark_info;
+
+    // Can optimize the factor graph
+    return true;
   }
 
   // Case where the landmark has not been observed before
@@ -207,30 +232,22 @@ void Localization::add_landmark_measurement(int landmark_id, double x, double y,
 
     // Creating the new landmark symbol and putting it in the dictionary
     gtsam::Symbol next_landmark_sym = gtsam::Symbol('l', landmark_obs_counter_);
-    landmark_id_map_[landmark_id] = next_landmark_sym;
 
-    landmark_sym = next_landmark_sym;
-    new_landmark = true;
-  }
+    // Create the landmark entry 
+    Localization::LandmarkInfo landmark_info;
 
-  std::cout << "got here" << std::endl;
+    landmark_info.land_sym = next_landmark_sym;
+    landmark_info.num_obs = 1;
+    landmark_info.robot_pose_sym = current_robot_sym_;
+    // Construct the current landmark measurement
+    gtsam::Pose2 curr_land_meas(land_rel_x, land_rel_y, land_rel_theta);
+    landmark_info.robot_T_land = curr_land_meas;
+    // Construct the global landmark measurement
+    gtsam::Pose2 glob_land_meas(land_glob_x, land_glob_y, land_glob_theta);
+    landmark_info.world_T_land = glob_land_meas;
 
-  // Construct the landmark measurement
-  gtsam::Pose2 land_meas(x, y, theta);
-  // Add the measurement to the factor graph from the current robot pose symbol
-  factor_graph_.add(gtsam::BetweenFactor<gtsam::Pose2> (current_robot_sym_, landmark_sym, land_meas, land_obs_noise_));
-
-  std::cout << "added factor" << std::endl;
-
-  // If the landmark has not been unobserved before, need to add initial estimate
-  if (new_landmark)
-  {
-    // Estimate is robot estimated pose concatenated with landmark measurement
-    Eigen::Matrix3d global_T_robot = est_robot_pose_.matrix().cast<double>();
-    Eigen::MatrixXd global_T_landmark = global_T_robot * land_meas.matrix().cast<double>();
-
-    gtsam::Pose2 est(global_T_landmark);
-    init_est_.insert(landmark_sym, est);
+    landmark_id_map_[landmark_id] = landmark_info;
+    return false;
   }
 }
 
