@@ -190,6 +190,8 @@ void Localization::add_landmark_measurement(int landmark_id, double x, double y,
   gtsam::Symbol landmark_sym;
   bool new_landmark;
 
+  std::cout << "in add_landmark_measurement" << std::endl;
+
   // Check if the landmark has been observed before
   if (landmark_id_map_.count(landmark_id) == 1)
   {
@@ -205,16 +207,20 @@ void Localization::add_landmark_measurement(int landmark_id, double x, double y,
 
     // Creating the new landmark symbol and putting it in the dictionary
     gtsam::Symbol next_landmark_sym = gtsam::Symbol('l', landmark_obs_counter_);
-    landmark_id_map_.at(landmark_id) = next_landmark_sym;
+    landmark_id_map_[landmark_id] = next_landmark_sym;
 
     landmark_sym = next_landmark_sym;
     new_landmark = true;
   }
 
+  std::cout << "got here" << std::endl;
+
   // Construct the landmark measurement
   gtsam::Pose2 land_meas(x, y, theta);
   // Add the measurement to the factor graph from the current robot pose symbol
   factor_graph_.add(gtsam::BetweenFactor<gtsam::Pose2> (current_robot_sym_, landmark_sym, land_meas, land_obs_noise_));
+
+  std::cout << "added factor" << std::endl;
 
   // If the landmark has not been unobserved before, need to add initial estimate
   if (new_landmark)
