@@ -58,8 +58,13 @@ class Localization
       double prior_trans_stddev, double prior_rot_stddev, double odom_trans_stddev, double odom_rot_stddev,
       double land_obs_trans_stddev, double land_obs_rot_stddev);
 
+    // // Adds an odometry measurement to iSAM2 and returns the current estimated state
+    // Localization::Pose2D add_odom_measurement(double x, double y, double theta);
+
     // Adds an odometry measurement to iSAM2 and returns the current estimated state
-    Localization::Pose2D add_odom_measurement(double x, double y, double theta);
+    Localization::Pose2D add_odom_measurement(double odom_x, double odom_y, double odom_theta, 
+        double global_x, double global_y, double global_theta);
+
 
     // Adds a landmark measurement to iSAM2
     void add_landmark_measurement(int landmark_id, double x, double y, double theta);

@@ -91,16 +91,14 @@ void Localization::initialize_noise_models()
 }
 
 // Adds an odometry measurement to iSAM2 and returns the current estimated state
-Localization::Pose2D Localization::add_odom_measurement(double x, double y, double theta)
+Localization::Pose2D Localization::add_odom_measurement(double odom_x, double odom_y, double odom_theta,
+  double global_x, double global_y, double global_theta)
 {
   robot_pose_counter_ += 1;
   gtsam::Symbol next_robot_sym = gtsam::Symbol('x', robot_pose_counter_);
 
-  std::cout << "current_robot_sym_: " << current_robot_sym_ << std::endl;
-  std::cout << "next_robot_sym: " << next_robot_sym << std::endl;
-
   // Update the factor graph with the transformation (need to increment the counter too)
-  gtsam::Pose2 robot_odometry(x, y, theta);
+  gtsam::Pose2 robot_odometry(odom_x, odom_y, odom_theta);
   factor_graph_.add(gtsam::BetweenFactor<gtsam::Pose2> (current_robot_sym_, next_robot_sym, robot_odometry, odom_noise_));
 
   current_robot_sym_ = next_robot_sym;
@@ -114,27 +112,77 @@ Localization::Pose2D Localization::add_odom_measurement(double x, double y, doub
 
   else 
   {
-    // Estimate is robot previous estimated pose concatenated with odom measurement
-    Eigen::Matrix3d global_T_robot_prev = est_robot_pose_.matrix().cast<double>();
-    Eigen::MatrixXd global_T_robot_now = global_T_robot_prev * robot_odometry.matrix().cast<double>();
+    // Estimate is global pose
 
-    gtsam::Pose2 est(global_T_robot_now);
+    gtsam::Pose2 est(global_x, global_y, global_theta);
     init_est_.insert(current_robot_sym_, est);
   }
-
-  // Update the robot pose wrt to the last optimized robot pose
-  last_opt_robot_T_robot_now_ = last_opt_robot_T_robot_now_ * robot_odometry;
-
-  // Update the current estimated robot pose (last optimized pose * last_opt_pose_T_curr_robot_pose
-  est_robot_pose_ = opt_robot_pose_ * last_opt_robot_T_robot_now_;
-
-  Localization::Pose2D pose2D;
-  pose2D.x = est_robot_pose_.x();
-  pose2D.y = est_robot_pose_.y();
-  pose2D.theta = est_robot_pose_.theta();
-
-  return pose2D;
 }
+
+// // Adds an odometry measurement to iSAM2 and returns the current estimated state
+// Localization::Pose2D Localization::add_odom_measurement(double x, double y, double theta)
+// {
+//   robot_pose_counter_ += 1;
+//   gtsam::Symbol next_robot_sym = gtsam::Symbol('x', robot_pose_counter_);
+
+//   // Update the factor graph with the transformation (need to increment the counter too)
+//   gtsam::Pose2 robot_odometry(x, y, theta);
+//   factor_graph_.add(gtsam::BetweenFactor<gtsam::Pose2> (current_robot_sym_, next_robot_sym, robot_odometry, odom_noise_));
+
+//   current_robot_sym_ = next_robot_sym;
+
+//   // Generating the initial estimates
+//   if (robot_pose_counter_ == 1)
+//   {
+//     // Estimate is just odom b/c prior is origin
+//     init_est_.insert(current_robot_sym_, robot_odometry);
+//   }
+
+//   else 
+//   {
+//     // Estimate is robot previous estimated pose concatenated with odom measurement
+//     Eigen::Matrix3d global_T_robot_prev = est_robot_pose_.matrix().cast<double>();
+//     Eigen::MatrixXd global_T_robot_now = global_T_robot_prev * robot_odometry.matrix().cast<double>();
+
+//     gtsam::Pose2 est(global_T_robot_now);
+//     init_est_.insert(current_robot_sym_, est);
+//   }
+
+//   robot_odometry.print("robot_odometry: ");
+//   last_opt_robot_T_robot_now_.print("last_opt_robot_T_robot_now_ before update: ");
+
+//   // gtsam::Pose2 holder = last_opt_robot_T_robot_now_;
+
+//   // Update the robot pose wrt to the last optimized robot pose
+//   last_opt_robot_T_robot_now_ = last_opt_robot_T_robot_now_ * robot_odometry;
+
+//   // gtsam::Pose2 odom_clone = holder.between(last_opt_robot_T_robot_now_);
+//   // odom_clone.print("Odom Clone: ");
+
+//   // // Estimate is robot previous estimated pose concatenated with odom measurement
+//   // Eigen::MatrixXd test = last_opt_robot_T_robot_now_.matrix();
+//   // Eigen::MatrixXd test2 = robot_odometry.matrix();
+//   // std::cout << "test: " << test << std::endl;
+//   // std::cout << "test2: " << test2 << std::endl;
+//   // Eigen::MatrixXd result = test * test2;
+
+//   // gtsam::Pose2 est(result);
+//   // est.print("Eigen Converted Results: ");
+
+//   last_opt_robot_T_robot_now_.print("last_opt_robot_T_robot_now_ after update: ");
+//   // opt_robot_pose_.print("Optimized Robot Pose: ");
+
+//   // Update the current estimated robot pose (last optimized pose * last_opt_pose_T_curr_robot_pose
+//   est_robot_pose_ = opt_robot_pose_ * last_opt_robot_T_robot_now_;
+//   est_robot_pose_.print("est_robot_pose_: ");
+
+//   Localization::Pose2D pose2D;
+//   pose2D.x = est_robot_pose_.x();
+//   pose2D.y = est_robot_pose_.y();
+//   pose2D.theta = est_robot_pose_.theta();
+
+//   return pose2D;
+// }
 
 // Adds a landmark measurement to iSAM2
 void Localization::add_landmark_measurement(int landmark_id, double x, double y, double theta)
