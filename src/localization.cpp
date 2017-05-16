@@ -207,6 +207,7 @@ void Localization::optimize_factor_graph()
 {
   // Update iSAM with the new factors
   isam2_.update(factor_graph_, init_est_);
+  isam2_.update();
   // // TODO: may want to call update for more accuracy but more time
 
   // Get the current iSAM2 estimate
