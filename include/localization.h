@@ -32,6 +32,7 @@
 // Also, we will initialize the robot at some location using a Prior factor.
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/slam/BearingRangeFactor.h>
 
 namespace slam {
 

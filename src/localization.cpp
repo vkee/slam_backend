@@ -85,8 +85,13 @@ void Localization::initialize_noise_models()
   odom_sigmas << odom_trans_stddev_, odom_trans_stddev_, odom_rot_stddev_;
   odom_noise_ = gtsam::noiseModel::Diagonal::Sigmas(odom_sigmas);
 
-  gtsam::Vector obs_sigmas(3);
-  obs_sigmas << land_obs_trans_stddev_, land_obs_trans_stddev_, land_obs_rot_stddev_;
+  // gtsam::Vector obs_sigmas(3);
+  // obs_sigmas << land_obs_trans_stddev_, land_obs_trans_stddev_, land_obs_rot_stddev_;
+  // land_obs_noise_ = gtsam::noiseModel::Diagonal::Sigmas(obs_sigmas);
+
+  // Because now doing range bearing measurements
+  gtsam::Vector obs_sigmas(2);
+  obs_sigmas << land_obs_rot_stddev_, land_obs_trans_stddev_;
   land_obs_noise_ = gtsam::noiseModel::Diagonal::Sigmas(obs_sigmas);
 }
 
@@ -138,16 +143,27 @@ bool Localization::add_landmark_measurement(int landmark_id, double land_rel_x, 
     if (num_obs == 1)
     {
       // Add the previous landmark measurement to the factor graph from the robot pose symbol
-      factor_graph_.add(gtsam::BetweenFactor<gtsam::Pose2> (landmark_info.robot_pose_sym, land_sym, landmark_info.robot_T_land, land_obs_noise_));
-
+      // factor_graph_.add(gtsam::BetweenFactor<gtsam::Pose2> (landmark_info.robot_pose_sym, land_sym, landmark_info.robot_T_land, land_obs_noise_));
+      
+      // Add the previous landmark measurement to the factor graph from the robot pose symbol
+      double x = landmark_info.robot_T_land.x();
+      double y = landmark_info.robot_T_land.y();
+      double range = sqrt(pow(x, 2) + pow(y, 2));
+      factor_graph_.add(gtsam::BearingRangeFactor<gtsam::Pose2, gtsam::Point2>(
+        landmark_info.robot_pose_sym, land_sym, landmark_info.robot_T_land.theta(), range, land_obs_noise_));
+      
       // Add the initial estimate
-      init_est_.insert(land_sym, landmark_info.world_T_land);
+      // init_est_.insert(land_sym, landmark_info.world_T_land);
+      init_est_.insert(land_sym, gtsam::Point2(landmark_info.world_T_land.x(), landmark_info.world_T_land.y()));
     }
 
     // Construct the current landmark measurement
-    gtsam::Pose2 curr_land_meas(land_rel_x, land_rel_y, land_rel_theta);
+    // gtsam::Pose2 curr_land_meas(land_rel_x, land_rel_y, land_rel_theta);
     // Add the current measurement
-    factor_graph_.add(gtsam::BetweenFactor<gtsam::Pose2> (current_robot_sym_, land_sym, curr_land_meas, land_obs_noise_));
+    // factor_graph_.add(gtsam::BetweenFactor<gtsam::Pose2> (current_robot_sym_, land_sym, curr_land_meas, land_obs_noise_));
+    double range = sqrt(pow(land_rel_x, 2) + pow(land_rel_y, 2));
+    factor_graph_.add(gtsam::BearingRangeFactor<gtsam::Pose2, gtsam::Point2>(
+      current_robot_sym_, land_sym, land_rel_theta, range, land_obs_noise_));
 
     // Update the dictionary (only the num_obs needs to be updated)
     // Increase the number of times the landmark was observed
